@@ -1,6 +1,14 @@
 .machine-container {
   display: flex;
   flex-direction: column;
+  background-color: pink;
+  padding: 10px;
+  border-radius: 10px;
+  color: black;
+  font-weight: bolder;
+  margin-bottom: 20px;
+  margin-left: 20%;
+  margin-right: 20%;
 }
 
 .gif-container {
