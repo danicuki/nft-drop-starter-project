@@ -203,7 +203,6 @@ const CandyMachine = ({ walletAddress }) => {
             if (!result.err) {
               console.log('NFT Minted!');
               setIsMinting(false);
-              await getCandyMachineState();
             }
           }
         },
@@ -264,8 +263,66 @@ const CandyMachine = ({ walletAddress }) => {
   };
 
   useEffect(() => {
+    const getCandyMachineState = async () => {
+      const provider = getProvider();
+      const idl = await Program.fetchIdl(candyMachineProgram, provider);
+      const program = new Program(idl, candyMachineProgram, provider);
+      const candyMachine = await program.account.candyMachine.fetch(
+        process.env.REACT_APP_CANDY_MACHINE_ID
+      );
+
+      // Parse out all our metadata and log it out
+      const itemsAvailable = candyMachine.data.itemsAvailable.toNumber();
+      const itemsRedeemed = candyMachine.itemsRedeemed.toNumber();
+      const itemsRemaining = itemsAvailable - itemsRedeemed;
+      const goLiveData = candyMachine.data.goLiveDate.toNumber();
+
+      // We will be using this later in our UI so let's generate this now
+      const goLiveDateTimeString = `${new Date(
+        goLiveData * 1000
+      ).toGMTString()}`
+
+      setMachineStats({
+        itemsAvailable,
+        itemsRedeemed,
+        itemsRemaining,
+        goLiveData,
+        goLiveDateTimeString,
+      });
+
+      console.log({
+        itemsAvailable,
+        itemsRedeemed,
+        itemsRemaining,
+        goLiveData,
+        goLiveDateTimeString,
+      });
+
+      setIsLoadingMints(true);
+
+      const data = await fetchHashTable(
+        process.env.REACT_APP_CANDY_MACHINE_ID,
+        true
+      );
+
+      if (data.length !== 0) {
+        for (const mint of data) {
+          // Get URI
+          const response = await fetch(mint.data.uri);
+          const parse = await response.json();
+          console.log("Past Minted NFT", mint)
+
+          // Get image URI
+          if (!mints.find((mint) => mint.image === parse.image)) {
+            setMints((prevState) => [...prevState, parse]);
+          }
+        }
+      }
+      setIsLoadingMints(false);
+
+    };
     getCandyMachineState();
-  }, []);
+  }, [mints]);
 
   const getProvider = () => {
     const rpcHost = process.env.REACT_APP_SOLANA_RPC_HOST;
@@ -280,65 +337,6 @@ const CandyMachine = ({ walletAddress }) => {
     );
 
     return provider;
-  };
-
-  const getCandyMachineState = async () => {
-    const provider = getProvider();
-    const idl = await Program.fetchIdl(candyMachineProgram, provider);
-    const program = new Program(idl, candyMachineProgram, provider);
-    const candyMachine = await program.account.candyMachine.fetch(
-      process.env.REACT_APP_CANDY_MACHINE_ID
-    );
-
-    // Parse out all our metadata and log it out
-    const itemsAvailable = candyMachine.data.itemsAvailable.toNumber();
-    const itemsRedeemed = candyMachine.itemsRedeemed.toNumber();
-    const itemsRemaining = itemsAvailable - itemsRedeemed;
-    const goLiveData = candyMachine.data.goLiveDate.toNumber();
-
-    // We will be using this later in our UI so let's generate this now
-    const goLiveDateTimeString = `${new Date(
-      goLiveData * 1000
-    ).toGMTString()}`
-
-    setMachineStats({
-      itemsAvailable,
-      itemsRedeemed,
-      itemsRemaining,
-      goLiveData,
-      goLiveDateTimeString,
-    });
-
-    console.log({
-      itemsAvailable,
-      itemsRedeemed,
-      itemsRemaining,
-      goLiveData,
-      goLiveDateTimeString,
-    });
-
-    setIsLoadingMints(true);
-
-    const data = await fetchHashTable(
-      process.env.REACT_APP_CANDY_MACHINE_ID,
-      true
-    );
-
-    if (data.length !== 0) {
-      for (const mint of data) {
-        // Get URI
-        const response = await fetch(mint.data.uri);
-        const parse = await response.json();
-        console.log("Past Minted NFT", mint)
-
-        // Get image URI
-        if (!mints.find((mint) => mint.image === parse.image)) {
-          setMints((prevState) => [...prevState, parse]);
-        }
-      }
-    }
-    setIsLoadingMints(false);
-
   };
 
   const renderMintedItems = () => (
